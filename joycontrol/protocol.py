@@ -405,7 +405,7 @@ class ControllerProtocol(BaseProtocol):
             input_report.sub_0x04_trigger_buttons_elapsed_time(SL_ms=3000, SR_ms=3000)
         elif self.controller in (Controller.JOYCON_R):
             # I added this to use the R with a real L joycon
-            input_report.sub_0x04_trigger_buttons_elapsed_time(R_ms=3000)
+            input_report.sub_0x04_trigger_buttons_elapsed_time(ZR_ms=3000, R_ms=3000)
         else:
             raise NotImplementedError(self.controller)
 
