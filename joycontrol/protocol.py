@@ -178,7 +178,7 @@ class ControllerProtocol(BaseProtocol):
             active_time = time.time() - last_send_time
             sleep_time = self.send_delay - active_time
             if sleep_time < 0:
-                logger.warning(f'Code is running {abs(sleep_time)} s too slow!')
+                # logger.warning(f'Code is running {abs(sleep_time)} s too slow!')
                 sleep_time = 0
 
             try:
@@ -400,12 +400,8 @@ class ControllerProtocol(BaseProtocol):
         # Hack: We assume this command is only used during pairing - Set values so the Switch assigns a player number
         if self.controller == Controller.PRO_CONTROLLER:
             input_report.sub_0x04_trigger_buttons_elapsed_time(L_ms=3000, R_ms=3000)
-        elif self.controller in (Controller.JOYCON_L):
-            # TODO: What do we do if we want to pair a combined JoyCon?
+        elif self.controller in (Controller.JOYCON_L, Controller.JOYCON_R):
             input_report.sub_0x04_trigger_buttons_elapsed_time(SL_ms=3000, SR_ms=3000)
-        elif self.controller in (Controller.JOYCON_R):
-            # I added this to use the R with a real L joycon
-            input_report.sub_0x04_trigger_buttons_elapsed_time(ZR_ms=3000, R_ms=3000)
         else:
             raise NotImplementedError(self.controller)
 
