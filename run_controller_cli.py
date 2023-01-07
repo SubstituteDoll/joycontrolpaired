@@ -157,6 +157,7 @@ async def mash_button(controller_state, button, interval):
     user_input = asyncio.ensure_future(
         ainput(prompt=f'Pressing the {button} button every {interval} seconds... Press <enter> to stop.')
     )
+    logging.info(f'Started Mashing')
     # push a button repeatedly until user input
     while not user_input.done():
         await button_push(controller_state, button)
