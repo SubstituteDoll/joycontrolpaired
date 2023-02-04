@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+# todo: make commands case-INSENSITIVE, make sideways joycons button commands be intuitive (currently, x is a)
+
 import argparse
 import asyncio
 import logging
