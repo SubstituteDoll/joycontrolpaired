@@ -307,8 +307,10 @@ def _register_commands_with_controller_state(controller_state, cli):
 
         button, interval = args
         if not float(interval) < 2.0:
-            return
+            raise ValueError('interval must be less than 2.0 seconds!')
         await mash_button(controller_state, button, interval)
+        logging.info(f'Mashing {button} ended')
+        print()
 
     cli.add_command(mash.__name__, mash)
 
@@ -344,6 +346,7 @@ def _register_commands_with_controller_state(controller_state, cli):
             await afk_hold(controller_state, button, interval, hold_dur)
         else:
             await afk_press(controller_state, button, interval)
+        print()
 
     cli.add_command(afk.__name__, afk)
 
@@ -393,14 +396,14 @@ def _register_commands_with_controller_state(controller_state, cli):
             await button_release(controller_state, *args[1:])
             logging.info(f'Held for then released {args[1:]} '
                          + f'after {float(args[0])} seconds')
-            print("\n")
         else:
             ensure_valid_button(controller_state, *args)
             # wait until controller is fully connected
             await controller_state.connect()
             await button_press(controller_state, *args)
             logging.info(f'Holding {args}... (you must manually release)')
-            print("\n")
+
+        print("")
 
     cli.add_command(hold.__name__, hold)
 
