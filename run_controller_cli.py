@@ -363,21 +363,44 @@ def _register_commands_with_controller_state(controller_state, cli):
     async def hold(*args):
         """
         hold - Press and hold specified buttons
+               Optionally, the duration can be specified for automatic release
 
         Usage:
-            hold <button>
+            hold [duration] <buttons> 
 
         Example:
             hold a b
+            hold 3.0 home minus
         """
         if not args:
             raise ValueError('"hold" command requires a button!')
+        
+        duration_given = True
 
-        ensure_valid_button(controller_state, *args)
+        try:
+            float(args[0])
+        except ValueError:
+            duration_given = False
 
-        # wait until controller is fully connected
-        await controller_state.connect()
-        await button_press(controller_state, *args)
+        if duration_given:
+            ensure_valid_button(controller_state, *args[1:])
+            # wait until controller is fully connected
+            await controller_state.connect()
+
+            await button_press(controller_state, *args[1:])
+            logging.info(f'Pressed {args[1:]}, waiting for {float(args[0])} sec...')
+            await asyncio.sleep(float(args[0]))
+            await button_release(controller_state, *args[1:])
+            logging.info(f'Held for then released {args[1:]} '
+                         + f'after {float(args[0])} seconds')
+            print("\n")
+        else:
+            ensure_valid_button(controller_state, *args)
+            # wait until controller is fully connected
+            await controller_state.connect()
+            await button_press(controller_state, *args)
+            logging.info(f'Holding {args}... (you must manually release)')
+            print("\n")
 
     cli.add_command(hold.__name__, hold)
 
