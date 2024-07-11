@@ -221,6 +221,64 @@ async def afk_press(controller_state, button, interval):
     await user_input
     report_after_interrupt(False, 0.0, presses, elapsed)
 
+async def afk_hold(controller_state, button, interval, hold_dur):
+    def report_after_interrupt(early, remain, press, elapse):
+        if early:
+            logging.info(f'Exited the pattern early, had '
+                         + str(remain)
+                         + ' seconds left until next press')
+        logging.info(f'Pressed the button '
+                     + str(press)
+                     + ' times for the last '
+                     + str(elapse)
+                     + ' seconds')
+
+    # wait until controller is fully connected
+    await controller_state.connect()
+    ensure_valid_button(controller_state, button)
+
+    user_input = asyncio.ensure_future(
+        ainput(prompt=f'Pressing the {button} button every {interval} seconds'
+               + ' and holding for {hold_dur} seconds each time... '
+               + 'Press <enter> to stop.')
+    )
+    logging.info(f'Started the afk pattern')
+    # push a button repeatedly until user input
+    presses = 0
+    total_elapsed = 0.0
+    while not user_input.done():
+        await button_press(controller_state, button)
+        await asyncio.sleep(float(hold_dur))
+        await button_release(controller_state, button)
+        presses = presses + 1
+        total_elapsed += float(hold_dur)
+
+        elapsed = 0.0
+        while elapsed < float(interval):
+            # if the remaining wait interval is less than 1 second, just
+            # wait out the rest of it and loop over to the outer loop
+            if (float(interval)-elapsed)<1.0:
+                await asyncio.sleep(float(interval)-elapsed)
+                total_elapsed += float(interval)-elapsed
+                break  # press the next button
+
+            # if the remaining wait interval is more than 1 second, give
+            # the user the chance to interrupt the mash every 1 second.
+            else:
+                await asyncio.sleep(1.0)
+                if user_input.done():
+                    await user_input
+                    total_elapsed += elapsed
+                    report_after_interrupt(True, float(interval)-elapsed, 
+                                           presses, total_elapsed)
+                    return
+            elapsed = elapsed+1.0
+        total_elapsed += float(interval)
+
+    # await future to trigger exceptions in case something went wrong
+    await user_input
+    report_after_interrupt(False, 0.0, presses, elapsed)
+
 def _register_commands_with_controller_state(controller_state, cli):
     """
     Commands registered here can use the given controller state.
@@ -260,17 +318,32 @@ def _register_commands_with_controller_state(controller_state, cli):
     async def afk(*args):
         """
         afk - Press a button every n seconds. The n must be > 1 seconds.
+              If hold is needed, specify as "hold <duration>".
 
         Usage:
-            afk <button> <interval>
+            afk <button> <interval> [hold] [duration]
         """
-        if not len(args) == 2:
+        if len(args) < 2:
             raise ValueError('"afk_press" command requires a button and interval>1 as arguments!')
+        
+        # set up some default values for scope, but they will never come up
+        button = "a"
+        interval = "1.0"
+        hold = ""
+        hold_dur = "1.0"
 
-        button, interval = args
+        if len(args) == 4:
+            button, interval, hold, hold_dur = args
+        elif len(args) == 2:
+            button, interval = args
+
         if not float(interval) > 1.0:
             return
-        await afk_press(controller_state, button, interval)
+        
+        if hold == "hold":
+            await afk_hold(controller_state, button, interval, hold_dur)
+        else:
+            await afk_press(controller_state, button, interval)
 
     cli.add_command(afk.__name__, afk)
 
