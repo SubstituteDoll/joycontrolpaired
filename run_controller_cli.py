@@ -239,7 +239,7 @@ async def afk_hold(controller_state, button, interval, hold_dur):
 
     user_input = asyncio.ensure_future(
         ainput(prompt=f'Pressing the {button} button every {interval} seconds'
-               + ' and holding for {hold_dur} seconds each time... '
+               + f' and holding for {hold_dur} seconds each time... '
                + 'Press <enter> to stop.')
     )
     logging.info(f'Started the afk pattern')
