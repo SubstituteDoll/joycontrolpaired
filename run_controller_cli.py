@@ -151,7 +151,7 @@ def ensure_valid_button(controller_state, *buttons):
             raise ValueError(f'Button {button} does not exist on {controller_state.get_controller()}')
 
 
-async def mash_button(controller_state, button, interval):
+async def mash_button(controller_state, button, interval, hold, hold_dur):
     # wait until controller is fully connected
     await controller_state.connect()
     ensure_valid_button(controller_state, button)
@@ -162,13 +162,18 @@ async def mash_button(controller_state, button, interval):
     logging.info(f'Started Mashing')
     # push a button repeatedly until user input
     while not user_input.done():
-        await button_push(controller_state, button)
-        await asyncio.sleep(float(interval))
+        if hold:
+            await button_press(controller_state, button)
+            await asyncio.sleep(float(hold_dur))
+            await button_release(controller_state, button)
+        else:
+            await button_push(controller_state, button)
+            await asyncio.sleep(float(interval))
 
     # await future to trigger exceptions in case something went wrong
     await user_input
 
-async def afk_press(controller_state, button, interval):
+async def mash_press(controller_state, button, interval):
     def report_after_interrupt(early, remain, press, elapse):
         if early:
             logging.info(f'Exited the pattern early, had '
@@ -202,7 +207,7 @@ async def afk_press(controller_state, button, interval):
             if (float(interval)-elapsed)<1.0:
                 await asyncio.sleep(float(interval)-elapsed)
                 total_elapsed += float(interval)-elapsed
-                break  # press the next button
+                break  # press the next button / exit the mash
 
             # if the remaining wait interval is more than 1 second, give
             # the user the chance to interrupt the mash every 1 second.
@@ -219,9 +224,9 @@ async def afk_press(controller_state, button, interval):
 
     # await future to trigger exceptions in case something went wrong
     await user_input
-    report_after_interrupt(False, 0.0, presses, elapsed)
+    report_after_interrupt(False, 0.0, presses, total_elapsed)
 
-async def afk_hold(controller_state, button, interval, hold_dur):
+async def mash_hold(controller_state, button, interval, hold_dur):
     def report_after_interrupt(early, remain, press, elapse):
         if early:
             logging.info(f'Exited the pattern early, had '
@@ -260,7 +265,7 @@ async def afk_hold(controller_state, button, interval, hold_dur):
             if (float(interval)-elapsed)<1.0:
                 await asyncio.sleep(float(interval)-elapsed)
                 total_elapsed += float(interval)-elapsed
-                break  # press the next button
+                break  # press the next button / exit the mash
 
             # if the remaining wait interval is more than 1 second, give
             # the user the chance to interrupt the mash every 1 second.
@@ -277,7 +282,7 @@ async def afk_hold(controller_state, button, interval, hold_dur):
 
     # await future to trigger exceptions in case something went wrong
     await user_input
-    report_after_interrupt(False, 0.0, presses, elapsed)
+    report_after_interrupt(False, 0.0, presses, total_elapsed)
 
 def _register_commands_with_controller_state(controller_state, cli):
     """
@@ -294,39 +299,19 @@ def _register_commands_with_controller_state(controller_state, cli):
 
     cli.add_command(test_buttons.__name__, test_buttons)
 
-    # Mash a button command
+    # Presses a button every n seconds.
     async def mash(*args):
         """
-        mash - Mash a specified button at a set interval, the interval must be < 2 seconds.
-
-        Usage:
-            mash <button> <interval>
-        """
-        if not len(args) == 2:
-            raise ValueError('"mash_button" command requires a button and interval as arguments!')
-
-        button, interval = args
-        if not float(interval) < 2.0:
-            raise ValueError('interval must be less than 2.0 seconds!')
-        await mash_button(controller_state, button, interval)
-        logging.info(f'Mashing {button} ended')
-        print()
-
-    cli.add_command(mash.__name__, mash)
-
-    # Presses a button every n seconds.
-    # This was separated from mash in order to improve the responsiveness of
-    # exiting the mash loop.
-    async def afk(*args):
-        """
-        afk - Press a button every n seconds. The n must be > 1 seconds.
+        -----------------------------------------------------------------------
+        mash - Press a button every n seconds. The n must be > 1 seconds.
               If hold is needed, specify as "hold <duration>".
 
         Usage:
-            afk <button> <interval> [hold] [duration]
+            mash <button> <interval> [hold] [duration]
+        -----------------------------------------------------------------------
         """
         if len(args) < 2:
-            raise ValueError('"afk_press" command requires a button and interval>1 as arguments!')
+            raise ValueError('"mash" command requires a button and interval as arguments!')
         
         # set up some default values for scope, but they will never come up
         button = "a"
@@ -339,16 +324,16 @@ def _register_commands_with_controller_state(controller_state, cli):
         elif len(args) == 2:
             button, interval = args
 
-        if not float(interval) > 1.0:
-            return
+        # if not float(interval) > 1.0:
+        #     raise ValueError('interval must be greater than 1.0 seconds!')
         
         if hold == "hold":
-            await afk_hold(controller_state, button, interval, hold_dur)
+            await mash_hold(controller_state, button, interval, hold_dur)
         else:
-            await afk_press(controller_state, button, interval)
+            await mash_press(controller_state, button, interval)
         print()
 
-    cli.add_command(afk.__name__, afk)
+    cli.add_command(mash.__name__, mash)
 
     async def click(*args):
 
@@ -365,6 +350,7 @@ def _register_commands_with_controller_state(controller_state, cli):
     # Hold a button command
     async def hold(*args):
         """
+        -----------------------------------------------------------------------
         hold - Press and hold specified buttons
                Optionally, the duration can be specified for automatic release
 
@@ -374,6 +360,7 @@ def _register_commands_with_controller_state(controller_state, cli):
         Example:
             hold a b
             hold 3.0 home minus
+        -----------------------------------------------------------------------
         """
         if not args:
             raise ValueError('"hold" command requires a button!')
@@ -410,6 +397,7 @@ def _register_commands_with_controller_state(controller_state, cli):
     # Release a button command
     async def release(*args):
         """
+        -----------------------------------------------------------------------
         release - Release specified buttons
 
         Usage:
@@ -417,6 +405,7 @@ def _register_commands_with_controller_state(controller_state, cli):
 
         Example:
             release a b
+        -----------------------------------------------------------------------
         """
         if not args:
             raise ValueError('"release" command requires a button!')
@@ -432,11 +421,13 @@ def _register_commands_with_controller_state(controller_state, cli):
     # Create nfc command
     async def nfc(*args):
         """
+        -----------------------------------------------------------------------
         nfc - Sets nfc content
 
         Usage:
             nfc <file_name>          Set controller state NFC content to file
             nfc remove               Remove NFC content from controller state
+        -----------------------------------------------------------------------
         """
         #logger.error('NFC Support was removed from joycontrol - see https://github.com/mart1nro/joycontrol/issues/80')
         if controller_state.get_controller() == Controller.JOYCON_L:
