@@ -143,11 +143,13 @@ class ControllerCLI(CLI):
 
     async def cmd_stick(self, side, direction, value=None):
         """
+        -----------------------------------------------------------------------
         stick - Command to set stick positions.
         :param side: 'l', 'left' for left control stick; 'r', 'right' for right control stick
         :param direction: 'center', 'up', 'down', 'left', 'right';
                           'h', 'horizontal' or 'v', 'vertical' to set the value directly to the "value" argument
         :param value: horizontal or vertical value
+        -----------------------------------------------------------------------
         """
         if side in ('l', 'left'):
             stick = self.controller_state.l_stick_state
