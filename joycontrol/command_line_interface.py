@@ -161,10 +161,17 @@ class ControllerCLI(CLI):
             raise ValueError('Value of side must be "l", "left" or "r", "right"')
 
     async def run(self):
+        last_command = "no last command"
         while True:
             user_input = await ainput(prompt='cmd >> ')
             if not user_input:
-                continue
+                if last_command is "no last command": 
+                    print("no user input and no last command")
+                    continue
+                else: 
+                    print("no user input, defaulting to the last command: " + last_command)
+                    user_input = last_command
+            last_command = user_input
 
             buttons_to_push = []
 
