@@ -166,10 +166,10 @@ class ControllerCLI(CLI):
             user_input = await ainput(prompt='cmd >> ')
             if not user_input:
                 if last_command is "no last command": 
-                    print("no user input and no last command")
+                    logger.warning("no user input and no last command")
                     continue
                 else: 
-                    print("no user input, defaulting to the last command: " + last_command)
+                    logger.info("no user input, defaulting to the last command: " + last_command)
                     user_input = last_command
             last_command = user_input
 
